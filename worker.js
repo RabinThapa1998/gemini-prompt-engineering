@@ -64,7 +64,6 @@ const parts = [
 async function generateResponse() {
     const modelNo = counter % models.length;
     const model = models[modelNo];
-    counter++;
     const result = await model.generateContent({
         contents: [{ role: 'user', parts }],
         generationConfig,
@@ -75,10 +74,14 @@ async function generateResponse() {
 const worker = new Worker(
     'prompt-queue',
     async (job) => {
+        const startTime = Date.now(); // Start time
+
         const { res, model_no } = await generateResponse();
-        console.log(`worker ${model_no} response`, res + `success request count ${counter}`);
+        counter++;
+        console.log(`worker ${model_no} response`, res + `success request count ${counter} Job ${job.id} processed in ${endTime - startTime} ms`);
         //add new line
         res += '\n';
+        const endTime = Date.now(); // End time
         return res;
     },
     {
@@ -86,10 +89,11 @@ const worker = new Worker(
             host: 'localhost',
             port: 6379,
         },
+        concurrency: 5, // Process one job at a time per worker
         limiter: {
-            max: 30,
-            duration: 6000,
-        },
+          max: 30, // Maximum 30 jobs
+          duration: 60000 // Per 60 seconds
+        }
     }
 );
 
