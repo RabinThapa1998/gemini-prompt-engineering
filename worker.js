@@ -1,6 +1,8 @@
 require('dotenv').config();
 
 const { Worker } = require('bullmq');
+const io = require('socket.io-client');
+const socket = io('http://localhost:3000');
 
 const {
     GoogleGenerativeAI,
@@ -80,7 +82,7 @@ const worker = new Worker(
         counter++;
         console.log(`worker ${model_no} response`, res + `success request count ${counter} Job ${job.id}`);
         //add new line
-        res += '\n';
+        socket.emit('jobCompleted', { jobId: job.id, res });
         return res;
     },
     {

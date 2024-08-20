@@ -4,19 +4,31 @@
  * $ npm install @google/generative-ai
  */
 require('dotenv').config();
+var cors = require('cors')
 const express = require('express');
-const { Queue } = require('bullmq');
+const { Server } = require('socket.io');
 
+const { Queue } = require('bullmq');
+const app = express();
+
+app.use(cors({
+     origin: '*',
+}))
 const promptQueue = new Queue('prompt-queue');
 
-const app = express();
+
+const server = require('http').createServer(app);
+const io = new Server(server,{
+    cors: {
+        origin: '*',  // Allow all origins for WebSocket connections
+        methods: ['GET', 'POST'],  // Allow GET and POST methods
+    }
+});
 
 app.use(express.json());
 
 let requestCounter = 0;
 app.post('/', async function (req, res) {
-    //insert to queue call producer
-    console.log('req.body',req.body)
     const { parts } = req.body;
     const response = await promptQueue.add('prompt-queue', {
         parts,
@@ -27,20 +39,15 @@ app.post('/', async function (req, res) {
     });
 });
 
-app.listen(3000, function () {
-    console.log('Server is running on http://localhost:3000');
+io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+    });
 });
 
-
-// generateResponse(parts, counter % models.length)
-// .then((response) => {
-//     requestCounter++;
-//     console.log( response,`success request count ${requestCounter}`);
-//     res.json(response);
-// })
-// .catch((error) => {
-//     console.error(error);
-//     res.status(500).send(
-//         'An error occurred while generating the response'
-//     );
-// });
+server.listen(3000, function () {
+    console.log('Server is running on http://localhost:3000');
+});
