@@ -11,13 +11,17 @@ const promptQueue = new Queue('prompt-queue');
 
 const app = express();
 
+app.use(express.json());
+
 let requestCounter = 0;
-app.get('/', async function (req, res) {
+app.post('/', async function (req, res) {
     //insert to queue call producer
+    console.log('req.body',req.body)
+    const { parts } = req.body;
     const response = await promptQueue.add('prompt-queue', {
-        parts: 'hello',
+        parts,
     });
-    console.log('job added', response.id);
+    console.log('job added', response.id, parts);
     res.send({
         message: `job added ${response.id}`,
     });

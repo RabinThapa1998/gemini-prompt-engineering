@@ -59,29 +59,28 @@ const parts = [
     {
         text: 'output: {                "message": " To scan a student\'s QR code, navigate to the \'Home\' screen. Tap the QR icon located on the top right of the toolbar. This will open the \'Scan Student QR Code\' activity. Position the student\'s QR code within the frame provided on the screen. Once the QR code is successfully scanned, it will open a new screen with several options for interacting with the scanned student. ",                 "activity": null,                "buttonText": null            }',
     },
-    { text: 'input: hi' },
 ];
-async function generateResponse() {
+async function generateResponse(query) {
     const modelNo = counter % models.length;
     const model = models[modelNo];
+    // Push the new query to the parts array
+    parts.push({ text: `input: ${query}` });
     const result = await model.generateContent({
-        contents: [{ role: 'user', parts }],
+        contents: [{ role: 'user', parts }], // Pass the entire parts array, which contains the conversation context
         generationConfig,
     });
+
     return { res: result.response.text(), model_no: modelNo };
 }
 
 const worker = new Worker(
     'prompt-queue',
     async (job) => {
-        const startTime = Date.now(); // Start time
-
-        const { res, model_no } = await generateResponse();
+        const { res, model_no } = await generateResponse(job.data.parts);
         counter++;
-        console.log(`worker ${model_no} response`, res + `success request count ${counter} Job ${job.id} processed in ${endTime - startTime} ms`);
+        console.log(`worker ${model_no} response`, res + `success request count ${counter} Job ${job.id}`);
         //add new line
         res += '\n';
-        const endTime = Date.now(); // End time
         return res;
     },
     {
@@ -91,9 +90,9 @@ const worker = new Worker(
         },
         concurrency: 5, // Process one job at a time per worker
         limiter: {
-          max: 30, // Maximum 30 jobs
-          duration: 60000 // Per 60 seconds
-        }
+            max: 30, // Maximum 30 jobs
+            duration: 60000, // Per 60 seconds
+        },
     }
 );
 
@@ -101,6 +100,6 @@ const worker = new Worker(
 //     console.log(`${job.id} has completed!`);
 //   });
 
-//   worker.on('failed', (job, err) => {
-//     console.log(`${job.id} has failed with ${err.message}`);
-//   });
+worker.on('failed', (job, err) => {
+    console.log(`${job.id} has failed with ${err.message}`);
+});
