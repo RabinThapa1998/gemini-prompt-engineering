@@ -11,6 +11,8 @@ const { Server } = require('socket.io');
 const { Queue } = require('bullmq');
 const app = express();
 
+const jobToSocketMap = new Map();
+
 app.use(cors({
      origin: '*',
 }))
@@ -33,6 +35,7 @@ app.post('/', async function (req, res) {
     const response = await promptQueue.add('prompt-queue', {
         parts,
     });
+
     console.log('job added', response.id, parts);
     res.send({
         message: `job added ${response.id}`,
@@ -41,6 +44,34 @@ app.post('/', async function (req, res) {
 
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
+
+    socket.on('requestJob', async (query) => {
+        console.log("requestJob",query);
+        const response = await promptQueue.add('prompt-queue', {
+            parts: query,
+        });
+        jobToSocketMap.set(response.id, socket.id);
+    
+        console.log('job added', response.id, query);
+    });
+    
+    socket.on("jobCompleted", (arg) => {
+        console.log("jobcompleted",arg); // world
+        //send message to client
+        // socket.emit('jobCompletedToClient', arg);
+        const socketId = jobToSocketMap.get(arg?.jobId);
+
+        if (!socketId) {
+          return;
+        }
+
+        socket.to(socketId).emit('jobCompletedToClient', arg);
+
+        jobToSocketMap.delete(arg.jobId);
+
+        console.log('job completed', arg.jobId);
+
+      });
 
     // Handle disconnection
     socket.on('disconnect', () => {

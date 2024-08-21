@@ -66,9 +66,10 @@ async function generateResponse(query) {
     const modelNo = counter % models.length;
     const model = models[modelNo];
     // Push the new query to the parts array
-    parts.push({ text: `input: ${query}` });
+    const newParts = [...parts, ...query];
+    console.log("🚀 ~ generateResponse ~ newParts:", newParts)
     const result = await model.generateContent({
-        contents: [{ role: 'user', parts }], // Pass the entire parts array, which contains the conversation context
+        contents: [{ role: 'user', parts:newParts }], // Pass the entire parts array, which contains the conversation context
         generationConfig,
     });
 

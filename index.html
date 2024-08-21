@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"  data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Chat</title>
+
+    <title>Veda Guru bot</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,15 +12,13 @@
         }
         #chat {
             width: 100%;
-            max-width: 500px;
+            max-width: 800px;
             margin: 0 auto;
         }
-        #messages {
-            border: 1px solid #ccc;
-            padding: 10px;
-            height: 300px;
-            overflow-y: scroll;
-            margin-bottom: 10px;
+    
+        
+        #messages div {
+            margin-bottom: 5px;
         }
         #messageInput {
             width: calc(100% - 22px);
@@ -30,72 +29,86 @@
             padding: 10px;
         }
     </style>
+
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+<script src="https://cdn.tailwindcss.com"></script>
+
+
 </head>
 <body>
 
-<div id="chat">
-    <h2>Chat</h2>
-    <div id="messages"></div>
-    <input type="text" id="messageInput" placeholder="Type your message...">
-    <button id="sendMessage">Send</button>
+<div id="chat" class="py-10">
+    <h2 class="text-2xl font-bold text-center">Veda Guru Bot</h2>
+    <div id="messages" class="h-[70vh] overflow-y-auto p-10 border rounded-lg mt-5 mb-12" ></div>
+    <form id="messageForm" class="flex gap-4">
+        <input  class="input input-bordered w-full " type="text" id="messageInput" placeholder="Type your message...">
+        <button class="btn " type="submit">Send</button>
+    </form>
 </div>
 
 <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 <script>
     const socket = io('http://localhost:3000');
+    const parts =[]
 
     const messagesDiv = document.getElementById('messages');
     const messageInput = document.getElementById('messageInput');
-    const sendMessageButton = document.getElementById('sendMessage');
 
-    // Function to append a message to the chat
-    function appendMessage(message) {
-        const div = document.createElement('div');
-        div.textContent = message;
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
+    function appendMessage(message, isUser = false) {
+    const wrapperDiv = document.createElement('div');
+    
+    // Add either 'chat-start' or 'chat-end' class based on whether the message is from the user or not
+    wrapperDiv.className = isUser ? 'chat chat-end' : 'chat chat-start';
+    
+    const childDiv = document.createElement('div');
+    childDiv.textContent = message;
+    childDiv.className = isUser ? 'chat-bubble' : 'chat-bubble bg-gray-100 text-black';
+    
+    wrapperDiv.appendChild(childDiv);
+    messagesDiv.appendChild(wrapperDiv);
+    
+    // Scroll to the bottom of the messages div
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
 
-    // Listen for incoming messages
-    socket.on('chatMessage', (message) => {
-        appendMessage('Server: ' + message);
+    socket.on('jobCompletedToClient', (message) => {
+        const response = JSON.parse(message.res);
+        console.log("🚀 ~ socket.on ~ message:", response)
+        //*update parts
+        parts.push({ text: `output: :${message.res}` });
+        appendMessage('Veda Guru Bot: ' + response.message);
     });
+    const form = document.getElementById('messageForm');
 
-    // Listen for job completion updates
-    socket.on('jobCompleted', (message) => {
-        console.log("🚀 ~ socket.on ~ message:", message)
-        appendMessage('Job completed: ' + message.result);
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+        sendMessage();
     });
-
-    // Send message and query to the server
-    sendMessageButton.addEventListener('click', () => {
+    function sendMessage(){
         const query = messageInput.value;
         if (query) {
-            appendMessage('You: ' + query);
+            parts.push({ text: `input: ${query}` });
+            appendMessage('You: ' + query, true);
+            console.log("🚀 ~ sendMessageButton.addEventListener ~ parts:", parts)
+            socket.emit('requestJob', parts);
 
-            fetch('http://localhost:3000/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ parts:query }),
-            })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Query sent, job ID:', data);
+            // fetch('http://localhost:3000/', {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //     },
+            //     body: JSON.stringify({ parts:query }),
+            // })
+            //     .then(response => response.json())
+            //     .then(data => {
+            //         console.log('Query sent, job ID:', data);
 
-                    // Wait for job completion via WebSocket
-                    socket.on('jobCompleted', (message) => {
-                        if (message.jobId === data.jobId) {
-                            appendMessage('Job completed: ' + message.result);
-                        }
-                    });
-                })
-                .catch(error => console.error('Error:', error));
+            //     })
+            //     .catch(error => console.error('Error:', error));
 
             messageInput.value = '';  // Clear the input field
         }
-    });
+    }
 </script>
 
 </body>
